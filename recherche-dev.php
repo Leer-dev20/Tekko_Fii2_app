@@ -428,7 +428,9 @@ API de gestion de contenu avec Node.js
 <i class="ri-heart-line"></i>
 </div>
 </button>
-<a href="#" class="bg-primary text-white px-4 py-2 !rounded-button font-medium hover:bg-blue-600 transition-colors whitespace-nowrap">Contacter</a>
+<a href="conversation.php?user=<?= $dev['user_id'] ?>" class="bg-primary text-white px-4 py-2 rounded-button font-medium hover:bg-blue-600 transition-colors">
+    Contacter
+</a>
 </div>
 </div>
 </div>
