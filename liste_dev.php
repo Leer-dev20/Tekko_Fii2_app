@@ -1,10 +1,11 @@
 <?php
+// Inclusion de la configuration de la base de données
 require_once 'config/database.php';
 
 $pdo = getPDO();
 
 // ------------------------------------------------------------
-// 1. Récupération et validation des paramètres GET
+// 1. Récupération des paramètres GET (filtres, recherche, tri, pagination)
 // ------------------------------------------------------------
 $search       = isset($_GET['search']) ? trim($_GET['search']) : '';
 $skills       = isset($_GET['skills']) ? (array)$_GET['skills'] : [];
@@ -13,13 +14,13 @@ $rate_max     = isset($_GET['rate_max']) ? (int)$_GET['rate_max'] : 0;
 $location     = isset($_GET['location']) ? $_GET['location'] : '';
 $sort         = isset($_GET['sort']) ? $_GET['sort'] : 'rating';
 $page         = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-$perPage      = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 6;
+$perPage      = isset($_GET['per_page']) ? (int)$_GET['per_page'] : 6; // 6 par défaut
 $allowedPerPage = [6, 12, 24, 48];
 if (!in_array($perPage, $allowedPerPage)) $perPage = 6;
 $offset       = ($page - 1) * $perPage;
 
 // ------------------------------------------------------------
-// 2. Récupération de toutes les compétences pour le dropdown
+// 2. Récupération de toutes les compétences (pour le dropdown)
 // ------------------------------------------------------------
 $allSkills = $pdo->query("SELECT id, name FROM skills ORDER BY name")->fetchAll();
 
@@ -32,23 +33,23 @@ if ($rate_max == 0) $rate_max = $maxRate;
 $rate_max = min($rate_max, $maxRate);
 
 // ------------------------------------------------------------
-// 4. Construction de la requête de comptage (avec gestion des compétences)
+// 4. Construction de la requête de comptage (sans colonnes inutiles)
 // ------------------------------------------------------------
 $countSql = "SELECT COUNT(DISTINCT d.id) FROM developers d
              JOIN users u ON d.user_id = u.id";
 $countParams = [];
 
-// Jointure sur les compétences si besoin
+// Jointure sur les compétences si nécessaire
 if (!empty($skills)) {
     $placeholders = implode(',', array_fill(0, count($skills), '?'));
-    $countSql .= " JOIN developer_skills ds ON d.id = ds.developer_id
-                   WHERE ds.skill_id IN ($placeholders)";
-    $countParams = array_merge($countParams, $skills);
+    $countSql .= " JOIN developer_skills ds ON d.id = ds.developer_id";
+    $countSql .= " WHERE ds.skill_id IN ($placeholders)";
+    $countParams = $skills;
 } else {
     $countSql .= " WHERE 1=1";
 }
 
-// Recherche
+// Recherche textuelle
 if (!empty($search)) {
     $countSql .= " AND (u.full_name LIKE ? OR d.title LIKE ? OR d.bio LIKE ?)";
     $like = '%' . $search . '%';
@@ -85,7 +86,7 @@ if ($page > $totalPages && $totalPages > 0) {
 // 5. Requête pour récupérer les développeurs de la page courante
 // ------------------------------------------------------------
 $sql = "SELECT 
-            u.id,
+            u.id as user_id,
             u.full_name,
             u.avatar,
             d.id as developer_id,
@@ -106,9 +107,9 @@ $dataParams = [];
 // Jointure compétences si nécessaire
 if (!empty($skills)) {
     $placeholders = implode(',', array_fill(0, count($skills), '?'));
-    $sql .= " JOIN developer_skills ds ON d.id = ds.developer_id
-              WHERE ds.skill_id IN ($placeholders)";
-    $dataParams = array_merge($dataParams, $skills);
+    $sql .= " JOIN developer_skills ds ON d.id = ds.developer_id";
+    $sql .= " WHERE ds.skill_id IN ($placeholders)";
+    $dataParams = $skills;
 } else {
     $sql .= " WHERE 1=1";
 }
@@ -369,17 +370,21 @@ function buildUrl($params = []) {
 </head>
 <body class="bg-white min-h-screen">
 
-    <!-- Header -->
+    <!-- HEADER STATIQUE (original) -->
     <header class="w-full py-4 px-6 flex justify-between items-center border-b border-gray-100">
-        <a href="index.php" class="text-2xl font-bold font-['Pacifico'] text-gray-900">Tekko-Fii</a>
-        <nav class="hidden md:flex space-x-8">
-            <a href="projet.php" class="text-gray-800 hover:text-primary font-medium">Projets</a>
-            <a href="liste_dev.php" class="text-primary font-medium border-b-2 border-primary">Développeurs</a>
-            <a href="entreprise.php" class="text-gray-800 hover:text-primary font-medium">Entreprise</a>
-        </nav>
-        <div class="flex items-center space-x-4">
-            <a href="inscrire.php" class="text-gray-800 hover:text-primary font-medium">S'inscrire</a>
-            <a href="connexion.php" class="bg-primary text-white px-5 py-2 rounded-button font-medium hover:bg-blue-600">Se connecter</a>
+        <div class="flex items-center">
+            <a href="index.php" class="text-2xl font-bold font-['Pacifico'] text-gray-900">Tekko-Fii</a>
+        </div>
+        <div class="flex items-center space-x-8">
+            <nav class="hidden md:flex space-x-8">
+                <a href="projet.php" class="text-gray-800 hover:text-primary font-medium">Projets</a>
+                <a href="liste_dev.php" class="text-primary font-medium border-b-2 border-primary">Développeurs</a>
+                <a href="entreprise.php" class="text-gray-800 hover:text-primary font-medium">Entreprise</a>
+            </nav>
+            <div class="flex items-center space-x-4">
+                <a href="inscrire.php" class="text-gray-800 hover:text-primary font-medium whitespace-nowrap">S'inscrire</a>
+                <a href="connexion.php" class="bg-primary text-white px-5 py-2 rounded-button font-medium hover:bg-blue-600 transition-colors whitespace-nowrap">Se connecter</a>
+            </div>
         </div>
     </header>
 
@@ -391,7 +396,7 @@ function buildUrl($params = []) {
         </div>
     </div>
 
-    <!-- Formulaire de recherche et filtres (GET) -->
+    <!-- Formulaire de recherche et filtres -->
     <section class="py-8 px-6 border-b border-gray-200">
         <div class="container mx-auto">
             <form method="get" action="liste_dev.php" id="filterForm">
@@ -424,7 +429,6 @@ function buildUrl($params = []) {
                                     $selectedCount = count($skills);
                                     if ($selectedCount === 0) echo 'Sélectionner';
                                     elseif ($selectedCount === 1) {
-                                        // Trouver le nom de la compétence sélectionnée
                                         $skillId = $skills[0];
                                         $skillName = '';
                                         foreach ($allSkills as $s) {
@@ -501,7 +505,7 @@ function buildUrl($params = []) {
                     </div>
                 </div>
 
-                <!-- Champs cachés pour le tri et la pagination -->
+                <!-- Champs cachés pour tri et pagination -->
                 <input type="hidden" name="sort" id="sortInput" value="<?= htmlspecialchars($sort) ?>">
                 <input type="hidden" name="per_page" id="perPageInput" value="<?= $perPage ?>">
             </form>
@@ -567,6 +571,7 @@ function buildUrl($params = []) {
                 <div class="dev-card bg-white rounded-xl shadow-md overflow-hidden border border-gray-100 hover:shadow-lg">
                     <div class="p-5">
                         <div class="flex items-start">
+                            <!-- Avatar -->
                             <div class="w-20 h-20 rounded-full overflow-hidden mr-4 flex-shrink-0 bg-gray-100">
                                 <img src="<?= htmlspecialchars($avatar) ?>" alt="<?= htmlspecialchars($dev['full_name']) ?>" 
                                      class="w-full h-full object-cover object-top"
@@ -590,6 +595,8 @@ function buildUrl($params = []) {
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Compétences -->
                         <?php if (!empty($skillsDev)): ?>
                         <div class="mt-4">
                             <div class="flex flex-wrap gap-2">
@@ -602,9 +609,13 @@ function buildUrl($params = []) {
                             </div>
                         </div>
                         <?php endif; ?>
+
+                        <!-- Bio courte -->
                         <p class="text-sm text-gray-600 mt-3 line-clamp-2">
                             <?= htmlspecialchars($dev['bio'] ?? 'Aucune description fournie.') ?>
                         </p>
+
+                        <!-- Projets récents -->
                         <?php if (!empty($portfolio)): ?>
                         <div class="border-t border-gray-100 mt-3 pt-3">
                             <p class="text-xs font-medium text-gray-500 mb-2">PROJETS RÉCENTS</p>
@@ -618,6 +629,8 @@ function buildUrl($params = []) {
                             </ul>
                         </div>
                         <?php endif; ?>
+
+                        <!-- Tarif et actions -->
                         <div class="flex justify-between items-center mt-4">
                             <div>
                                 <span class="font-bold text-xl"><?= number_format($dev['hourly_rate'], 0) ?></span>
@@ -628,7 +641,7 @@ function buildUrl($params = []) {
                                     <i class="ri-heart-line text-gray-500"></i>
                                 </button>
                                 <?php if ($dev['availability_status'] != 'unavailable'): ?>
-                                    <a href="#" class="bg-primary text-white px-4 py-2 rounded-button font-medium hover:bg-blue-600 transition-colors whitespace-nowrap">Contacter</a>
+                                    <a href="conversation.php?id=<?= $dev['user_id'] ?>" class="bg-primary text-white px-4 py-2 rounded-button font-medium hover:bg-blue-600 transition-colors whitespace-nowrap">Contacter</a>
                                 <?php else: ?>
                                     <span class="bg-gray-200 text-gray-500 px-4 py-2 rounded-button font-medium cursor-not-allowed">Contacter</span>
                                 <?php endif; ?>
@@ -643,9 +656,7 @@ function buildUrl($params = []) {
             <?php if ($totalPages > 1): ?>
             <div class="mt-12 flex flex-col md:flex-row justify-between items-center">
                 <div class="mb-4 md:mb-0">
-                    <span class="text-sm text-gray-600">
-                        Page <?= $page ?> sur <?= $totalPages ?>
-                    </span>
+                    <span class="text-sm text-gray-600">Page <?= $page ?> sur <?= $totalPages ?></span>
                 </div>
                 <div class="flex items-center">
                     <div class="mr-4">
@@ -655,9 +666,6 @@ function buildUrl($params = []) {
                             <option value="24" <?= $perPage == 24 ? 'selected' : '' ?>>24 par page</option>
                             <option value="48" <?= $perPage == 48 ? 'selected' : '' ?>>48 par page</option>
                         </select>
-                        <div class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none">
-                            <i class="ri-arrow-down-s-line w-4 h-4"></i>
-                        </div>
                     </div>
                     <div class="flex">
                         <!-- Page précédente -->
@@ -727,8 +735,8 @@ function buildUrl($params = []) {
         </div>
     </section>
 
-    <!-- Footer -->
-    <footer class="bg-gray-900 text-white py-12 px-6 mt-12">
+    <!-- Footer (identique à l'original) -->
+    <footer class="bg-gray-900 text-white py-12 px-6">
         <div class="container mx-auto">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-10">
                 <div>
@@ -742,45 +750,47 @@ function buildUrl($params = []) {
                 </div>
                 <div>
                     <h4 class="text-lg font-semibold mb-4">Liens rapides</h4>
-                    <ul class="space-y-2 text-gray-400">
-                        <li><a href="#" class="hover:text-white">Développeurs populaires</a></li>
-                        <li><a href="#" class="hover:text-white">Nouveaux talents</a></li>
-                        <li><a href="#" class="hover:text-white">Projets disponibles</a></li>
-                        <li><a href="#" class="hover:text-white">Blog</a></li>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">Développeurs populaires</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Nouveaux talents</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Projets disponibles</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Blog</a></li>
                     </ul>
                 </div>
                 <div>
                     <h4 class="text-lg font-semibold mb-4">Ressources</h4>
-                    <ul class="space-y-2 text-gray-400">
-                        <li><a href="#" class="hover:text-white">Documentation</a></li>
-                        <li><a href="#" class="hover:text-white">Guide du développeur</a></li>
-                        <li><a href="#" class="hover:text-white">FAQ</a></li>
-                        <li><a href="#" class="hover:text-white">Support</a></li>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">Documentation</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Guide du développeur</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">FAQ</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Support</a></li>
                     </ul>
                 </div>
                 <div>
                     <h4 class="text-lg font-semibold mb-4">Légal</h4>
-                    <ul class="space-y-2 text-gray-400">
-                        <li><a href="#" class="hover:text-white">Conditions d'utilisation</a></li>
-                        <li><a href="#" class="hover:text-white">Politique de confidentialité</a></li>
-                        <li><a href="#" class="hover:text-white">Licences</a></li>
-                        <li><a href="#" class="hover:text-white">Cookies</a></li>
+                    <ul class="space-y-2">
+                        <li><a href="#" class="text-gray-400 hover:text-white">Conditions d'utilisation</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Politique de confidentialité</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Licences</a></li>
+                        <li><a href="#" class="text-gray-400 hover:text-white">Cookies</a></li>
                     </ul>
                 </div>
             </div>
             <div class="border-t border-gray-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
                 <p class="text-gray-400 mb-4 md:mb-0">© 2025 Tekko-Fii. Tous droits réservés.</p>
-                <div class="flex items-center space-x-4 text-gray-400">
-                    <i class="ri-visa-fill ri-lg"></i>
-                    <i class="ri-mastercard-fill ri-lg"></i>
-                    <i class="ri-paypal-fill ri-lg"></i>
+                <div class="flex items-center space-x-4">
+                    <div class="text-gray-400 flex items-center">
+                        <i class="ri-visa-fill ri-lg"></i>
+                        <i class="ri-mastercard-fill ri-lg"></i>
+                        <i class="ri-paypal-fill ri-lg"></i>
+                    </div>
                 </div>
             </div>
         </div>
     </footer>
 
     <script>
-        // ========== DYNAMIQUE DES FILTRES ==========
+        // JavaScript pour l'interactivité des filtres (dropdown, slider, etc.)
         document.addEventListener('DOMContentLoaded', function() {
             // Dropdown des compétences
             const skillsFilterBtn = document.getElementById('skillsFilterBtn');
@@ -825,7 +835,7 @@ function buildUrl($params = []) {
                 });
             }
 
-            // Tri : changement du select -> soumet le formulaire
+            // Tri
             const sortSelect = document.getElementById('sortSelect');
             const sortInput = document.getElementById('sortInput');
             if (sortSelect && sortInput) {
@@ -835,7 +845,7 @@ function buildUrl($params = []) {
                 });
             }
 
-            // Switch disponibilité : soumission automatique
+            // Switch disponibilité
             const availabilitySwitch = document.getElementById('availabilitySwitch');
             if (availabilitySwitch) {
                 availabilitySwitch.addEventListener('change', function() {
@@ -843,7 +853,7 @@ function buildUrl($params = []) {
                 });
             }
 
-            // Localisation select : soumission automatique
+            // Localisation
             const locationSelect = document.getElementById('locationSelect');
             if (locationSelect) {
                 locationSelect.addEventListener('change', function() {
@@ -851,13 +861,13 @@ function buildUrl($params = []) {
                 });
             }
 
-            // Nombre par page : changement -> soumet avec per_page et page=1
+            // Nombre par page
             const perPageSelect = document.getElementById('perPageSelect');
             if (perPageSelect) {
                 perPageSelect.addEventListener('change', function() {
                     const url = new URL(window.location.href);
                     url.searchParams.set('per_page', this.value);
-                    url.searchParams.delete('page'); // retour page 1
+                    url.searchParams.delete('page');
                     window.location.href = url.toString();
                 });
             }
