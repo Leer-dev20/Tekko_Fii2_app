@@ -364,6 +364,16 @@ input:focus, select:focus {
             <a href="connexion.php" class="bg-primary text-white px-5 py-2 rounded-button font-medium hover:bg-blue-600 transition-colors whitespace-nowrap">Se connecter</a>
         <?php endif; ?>
     </div>
+    <a href="panier.php" class="relative ml-4">
+    <i class="ri-shopping-cart-line text-2xl text-gray-600"></i>
+    <?php 
+    $cartCount = isset($_SESSION['cart']) ? count($_SESSION['cart']) : 0;
+    if ($cartCount > 0): ?>
+        <span class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+            <?= $cartCount ?>
+        </span>
+    <?php endif; ?>
+</a>
 </header>
 
 <!-- Page Title -->
@@ -808,6 +818,7 @@ function openModal(project, technologies) {
     document.getElementById("modalDescription").innerText = project.description;
     document.getElementById("modalImage").src = project.image_path || 'img/placeholder-project.jpg';
     document.getElementById("modalGithub").href = project.github_url || '#';
+
     
     // Afficher les technologies
     const techContainer = document.getElementById("modalTechnologies");
@@ -825,6 +836,24 @@ function openModal(project, technologies) {
 function closeModal() {
     document.getElementById("modal").classList.add("hidden");
 }
+
+// Dans openModal, après avoir rempli les champs, on peut ajouter un événement
+document.getElementById('btnAcheter').onclick = function() {
+    const projectId = project.id;
+    fetch('ajouter_panier.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'project_id=' + projectId
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Projet ajouté au panier !');
+        } else {
+            alert('Erreur : ' + data.error);
+        }
+    });
+};
 </script>
 </body>
 </html>
